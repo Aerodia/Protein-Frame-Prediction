@@ -402,7 +402,7 @@ print(f"Axis MAE (X,Y,Z): {test_metrics['axis_mae']}")
 
 # --- Graph 1: Train / Val Loss
 if "train_loss" in history and "val_loss" in history:
-    plt.figure(figsize=(9, 4))
+    plt.figure(figsize=(10, 5))
     plt.plot(history["train_loss"], marker="o", linewidth=2, label="Train Loss")
     plt.plot(history["val_loss"], marker="o", linewidth=2, label="Val Loss")
     plt.xlabel("Epoch")
@@ -416,7 +416,7 @@ if "train_loss" in history and "val_loss" in history:
 
 # --- Graph 2: MSE / MAE across epochs
 if "mse" in history and "mae" in history:
-    plt.figure(figsize=(9, 4))
+    plt.figure(figsize=(10, 5))
     plt.plot(history["mse"], marker="o", linewidth=2, label="MSE")
     plt.plot(history["mae"], marker="o", linewidth=2, label="MAE")
     plt.xlabel("Epoch")
@@ -429,10 +429,10 @@ if "mse" in history and "mae" in history:
     plt.close()
 
 # --- Graph 3: RMSD distribution on test set
-plt.figure(figsize=(9, 4))
+plt.figure(figsize=(11, 5))
 plt.hist(test_metrics["atom_errors"], bins=30, alpha=0.85)
 plt.xlabel("Per-Atom Displacement Error")
-plt.ylabel("Count")
+plt.ylabel("Atoms whose RMSD value falls within a given bin (range)")
 plt.title("Distribution of Atomic Prediction Error")
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
@@ -440,11 +440,11 @@ plt.show()
 plt.close()
 
 # --- Graph 4: Axis-wise MAE
-plt.figure(figsize=(7, 4))
+plt.figure(figsize=(9, 5))
 plt.bar(["X", "Y", "Z"], test_metrics["axis_mae"])
-plt.xlabel("Axis")
-plt.ylabel("Mean Absolute Error")
-plt.title("Axis-wise Prediction Error")
+plt.xlabel("Spatial direction of atom coordinates → X, Y, Z")
+plt.ylabel("Mean Absolute Error along each axis")
+plt.title("Axis-wise Prediction Error (MAE)")
 plt.grid(True, axis="y", alpha=0.3)
 plt.tight_layout()
 plt.show()
@@ -453,8 +453,8 @@ plt.close()
 # --- Graph 5: Mean signed error by axis
 plt.figure(figsize=(7, 4))
 plt.bar(["X", "Y", "Z"], test_metrics["axis_mean_signed"])
-plt.xlabel("Axis")
-plt.ylabel("Mean Signed Error")
+plt.xlabel("Spatial direction of atom coordinates")
+plt.ylabel("Mean Signed Error (shows bias)")
 plt.title("Mean Signed Prediction Error by Axis")
 plt.grid(True, axis="y", alpha=0.3)
 plt.tight_layout()
@@ -484,14 +484,78 @@ plt.tight_layout()
 plt.show()
 plt.close()
 
+###############################################################################################
+# Select only 75 random samples
+sample_size = min(75, len(flat_true))
+idx_small = np.random.choice(len(flat_true), size=sample_size, replace=False)
+
+plt.figure(figsize=(15, 5))
+axes = ["X", "Y", "Z"]
+
+for i in range(3):
+    plt.subplot(1, 3, i + 1)
+
+    # Scatter (only 30 points)
+    plt.scatter(
+        flat_true[idx_small, i],
+        flat_pred[idx_small, i],
+        s=40,              # slightly bigger for visibility
+        alpha=0.7
+    )
+
+    # Perfect prediction line
+    min_v = min(flat_true[idx_small, i].min(), flat_pred[idx_small, i].min())
+    max_v = max(flat_true[idx_small, i].max(), flat_pred[idx_small, i].max())
+    plt.plot([min_v, max_v], [min_v, max_v], "k--", linewidth=1)
+
+    plt.xlabel(f"Actual {axes[i]} Coordinate")
+    plt.ylabel(f"Predicted {axes[i]} Coordinate")
+    plt.title(f"{axes[i]} Axis: Actual vs Predicted")
+
+    plt.grid(alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+plt.close()
+###################################################################################
+
+# Compute average error per axis (already available)
+axis_error = np.abs(flat_pred - flat_true).mean(axis=0)
+
+plt.figure(figsize=(7, 4))
+
+bars = plt.bar(["X direction", "Y direction", "Z direction"], axis_error)
+
+plt.xlabel("Direction in space")
+plt.ylabel("Average prediction error")
+plt.title("How far off are predictions in each direction?")
+
+# Add values on bars
+for bar in bars:
+    h = bar.get_height()
+    plt.text(bar.get_x() + bar.get_width()/2, h, f"{h:.3f}", ha="center", va="bottom")
+
+plt.grid(axis="y", alpha=0.3)
+
+plt.figtext(
+    0.5, -0.05,
+    "Lower values mean better predictions. This shows how accurately the model predicts atom movement in each direction.",
+    ha="center",
+    fontsize=9
+)
+
+plt.tight_layout()
+plt.show()
+plt.close()
+
 # --- Graph 7: Histogram of per-batch RMSD-like values
 # Compute per-sample RMSD more explicitly from saved arrays
 diff = test_metrics["diff"]
 per_atom_rms = np.sqrt((diff ** 2).sum(axis=1))  # one value per atom
 plt.figure(figsize=(9, 4))
 plt.hist(per_atom_rms, bins=30, alpha=0.85)
-plt.xlabel("Per-Atom RMSD")
-plt.ylabel("Count")
+plt.xlabel("3D prediction error per atom")
+plt.ylabel("Atoms falling into each bin (range of values)")
 plt.title("Per-Atom RMSD Distribution")
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
